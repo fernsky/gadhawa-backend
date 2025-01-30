@@ -10,6 +10,11 @@ import { UserService } from './user.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserProfileResponse } from './dto';
 
+interface JwtUser {
+  userId: number;
+  email: string;
+}
+
 @ApiTags('User')
 @Controller({
   path: 'user',
@@ -28,8 +33,8 @@ export class UserController {
     type: UserProfileResponse,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getProfile(@CurrentUser() user: { userId: number; email: string }) {
-    console.log('Current user from token:', user);
+  async getProfile(@CurrentUser() user: JwtUser) {
+    console.log('Received user from JWT:', user); // Debug log
     return this.userService.getUserProfile(user.userId);
   }
 }
