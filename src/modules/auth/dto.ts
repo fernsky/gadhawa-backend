@@ -62,3 +62,11 @@ export class AuthResponseDto {
     name: string;
   };
 }
+
+export class LogoutResponseDto {
+  @ApiProperty({
+    example: 'User logged out successfully',
+    description: 'Logout success message',
+  })
+  message: string;
+}

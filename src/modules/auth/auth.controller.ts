@@ -1,4 +1,11 @@
-import { Body, Controller, Post, UsePipes, Version } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  UsePipes,
+  Version,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   LoginDto,
@@ -6,9 +13,11 @@ import {
   SignupDto,
   SignupSchema,
   AuthResponseDto,
+  LogoutResponseDto,
 } from './dto';
 import { ZodValidationPipe } from '../../common/pipes/zod.pipe';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @ApiTags('Authentication')
 @Controller({
@@ -53,5 +62,19 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(LoginSchema))
   login(@Body() body: LoginDto) {
     return this.authService.login(body);
+  }
+
+  @Post('logout')
+  @Version('1')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Logout user' })
+  @ApiResponse({
+    status: 200,
+    description: 'User successfully logged out',
+    type: LogoutResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async logout() {
+    return this.authService.logout();
   }
 }

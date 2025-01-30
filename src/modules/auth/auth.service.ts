@@ -82,4 +82,12 @@ export class AuthService {
       },
     };
   }
+
+  async logout() {
+    // In a stateless JWT setup, the client is responsible for removing the token
+    // Server-side we just return a success message
+    return {
+      message: 'User logged out successfully',
+    };
+  }
 }
