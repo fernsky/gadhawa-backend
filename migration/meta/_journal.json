@@ -1,0 +1,27 @@
+{
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1710082606771,
+      "tag": "0000_even_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1738211577726,
+      "tag": "0001_goofy_synch",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1738211638629,
+      "tag": "0002_nostalgic_zodiak",
+      "breakpoints": true
+    }
+  ]
+}
