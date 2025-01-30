@@ -20,7 +20,8 @@ import {
   ForbiddenExceptionFilter,
   NotFoundExceptionFilter,
 } from './core/filters';
-import { UsersModule } from './modules/users/users.module';
+// import { UsersModule } from './modules/users/users.module';
+import { UserModule } from './modules/user/user.module';
 import { NestDrizzleModule } from './modules/drizzle/drizzle.module';
 import { AuthModule } from './modules/auth/auth.module';
 import configuration from './config/configuration';
@@ -28,7 +29,7 @@ import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-    UsersModule,
+    UserModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
