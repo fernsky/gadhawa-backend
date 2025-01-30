@@ -24,7 +24,7 @@ export class AuthController {
   @ApiBody({ type: SignupDto })
   @ApiResponse({
     status: 201,
-    description: 'User successfully created',
+    description: 'User successfully created and logged in',
     type: AuthResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid input' })
@@ -33,9 +33,7 @@ export class AuthController {
   async signup(@Body() body: SignupDto) {
     console.log('Controller: Raw request body:', body);
     try {
-      const result = await this.authService.signup(body);
-      console.log('Controller: Signup completed', result);
-      return result;
+      return await this.authService.signup(body);
     } catch (error) {
       console.error('Controller: Signup error:', error);
       throw error;

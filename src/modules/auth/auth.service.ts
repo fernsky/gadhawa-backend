@@ -43,10 +43,14 @@ export class AuthService {
         .returning();
       console.log('Service: User created:', user);
 
+      const payload = { sub: user.id, email: user.email };
       return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        access_token: this.jwtService.sign(payload),
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
       };
     } catch (error) {
       console.error('Service: Error in signup:', error);
