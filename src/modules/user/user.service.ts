@@ -10,7 +10,7 @@ export class UserService {
     @Inject(DRIZZLE_ORM) private db: PostgresJsDatabase<typeof schema>,
   ) {}
 
-  async getUserProfile(userId: number) {
+  async getUserProfile(userId: string) {
     const user = await this.db.query.users.findFirst({
       where: eq(schema.users.id, userId),
     });

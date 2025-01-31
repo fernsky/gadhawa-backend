@@ -11,7 +11,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserProfileResponse } from './dto';
 
 interface JwtUser {
-  userId: number;
+  userId: string;
   email: string;
 }
 

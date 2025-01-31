@@ -10,6 +10,8 @@ import {
   InvalidCredentialsException,
   UserAlreadyExistsException,
 } from '../../common/exceptions/auth.exception';
+import { nanoid } from 'nanoid';
+import type { NewUser } from '../drizzle/schema';
 
 @Injectable()
 export class AuthService {
@@ -30,16 +32,16 @@ export class AuthService {
         throw new UserAlreadyExistsException();
       }
 
-      const hashedPassword = await bcrypt.hash(dto.password, 10);
-      console.log('Service: Password hashed');
+      const newUser: NewUser = {
+        id: nanoid(),
+        email: dto.email,
+        password: await bcrypt.hash(dto.password, 10),
+        name: dto.name,
+      };
 
       const [user] = await this.db
         .insert(schema.users)
-        .values({
-          email: dto.email,
-          password: hashedPassword,
-          name: dto.name,
-        })
+        .values(newUser)
         .returning();
       console.log('Service: User created:', user);
 
@@ -72,13 +74,14 @@ export class AuthService {
       throw new InvalidCredentialsException();
     }
 
-    const payload = { sub: user.id, email: user.email };
+    const payload = { sub: user.id, email: user.email, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     };
   }
