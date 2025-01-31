@@ -1,14 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DRIZZLE_ORM } from '../../core/constants/db.constants';
+import { DRIZZLE_ORM } from '../../../core/constants/db.constants';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import * as schema from '../drizzle/schema';
+import * as schema from '@app/modules/drizzle/schema';
 import { and, eq, sql } from 'drizzle-orm';
-import { CreateAreaDto, UpdateAreaDto, AreaQueryDto } from './area.dto';
+import { CreateAreaDto, UpdateAreaDto, AreaQueryDto } from '../dtos/area.dto';
 import {
   AreaNotFoundException,
   DuplicateAreaCodeException,
   InvalidGeometryException,
-} from './area.exception';
+} from '../exceptions/area.exception';
 import { nanoid } from 'nanoid';
 
 @Injectable()
@@ -79,8 +79,14 @@ export class AreaService {
 
     return areas.map((area) => ({
       ...area,
-      geometry: area.geometry ? JSON.parse(area.geometry as string) : null,
-      centroid: area.centroid ? JSON.parse(area.centroid as string) : null,
+      geometry:
+        typeof area.geometry === 'string'
+          ? JSON.parse(area.geometry)
+          : area.geometry,
+      centroid:
+        typeof area.centroid === 'string'
+          ? JSON.parse(area.centroid)
+          : area.centroid,
     }));
   }
 

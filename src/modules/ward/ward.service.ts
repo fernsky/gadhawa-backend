@@ -95,7 +95,10 @@ export class WardService {
     return {
       wardNumber: ward.wardNumber,
       wardAreaCode: ward.wardAreaCode,
-      geometry: ward.geometry,
+      geometry:
+        typeof ward.geometry === 'string'
+          ? JSON.parse(ward.geometry)
+          : ward.geometry,
     };
   }
 }

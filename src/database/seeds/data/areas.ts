@@ -1,5 +1,4 @@
-import { AreaStatus } from '../../../modules/area/area.types';
-
+import { AreaStatus } from '@app/modules/area/types/area.types';
 export const areaSeeds = [
   {
     id: '1',

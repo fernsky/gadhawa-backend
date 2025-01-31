@@ -9,18 +9,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AreaService } from './area.service';
-import { CreateAreaDto, UpdateAreaDto, AreaQueryDto } from './area.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { AreaService } from '../services/area.service';
+import { CreateAreaDto, UpdateAreaDto, AreaQueryDto } from '../dtos/area.dto';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { Role } from '../auth/enum/roles.enum';
+import { Role } from '../../auth/enum/roles.enum';
 
 @ApiTags('Areas')
 @ApiBearerAuth()
