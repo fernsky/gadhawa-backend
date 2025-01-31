@@ -69,6 +69,15 @@ export const areaStatusEnum = pgEnum('area_status_enum', [
   'asked_for_withdrawl',
 ]);
 
+export type AreaStatus =
+  | 'unassigned'
+  | 'newly_assigned'
+  | 'ongoing_survey'
+  | 'revision'
+  | 'asked_for_completion'
+  | 'asked_for_revision_completion'
+  | 'asked_for_withdrawl';
+
 export const areas = pgTable('areas', {
   id: varchar('id', { length: 36 }).primaryKey(),
   code: integer('code').notNull(),
@@ -79,3 +88,6 @@ export const areas = pgTable('areas', {
   assignedTo: varchar('assigned_to', { length: 21 }).references(() => users.id),
   areaStatus: areaStatusEnum('area_status').default('unassigned'),
 });
+
+export type Area = typeof areas.$inferSelect;
+export type NewArea = typeof areas.$inferInsert;

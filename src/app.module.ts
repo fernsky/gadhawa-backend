@@ -25,6 +25,7 @@ import { UserModule } from './modules/user/user.module';
 import { NestDrizzleModule } from './modules/drizzle/drizzle.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { WardModule } from './modules/ward/ward.module';
+import { AreaModule } from './modules/area/area.module';
 import configuration from './config/configuration';
 import { HealthModule } from './health/health.module';
 
@@ -58,6 +59,7 @@ import { HealthModule } from './health/health.module';
     AuthModule,
     HealthModule,
     WardModule, // Add this line
+    AreaModule,
   ],
   controllers: [AppController],
   providers: [

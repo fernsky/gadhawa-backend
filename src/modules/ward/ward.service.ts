@@ -95,7 +95,7 @@ export class WardService {
     return {
       wardNumber: ward.wardNumber,
       wardAreaCode: ward.wardAreaCode,
-      geometry: ward.geometry ? JSON.parse(ward.geometry) : null,
+      geometry: ward.geometry,
     };
   }
 }

@@ -3,9 +3,25 @@
 import { sql } from 'drizzle-orm';
 import { customType, type CustomTypeValues } from 'drizzle-orm/pg-core';
 import type * as GeoJSON from 'geojson';
+import * as wkx from 'wkx';
+
+// PostGIS utility functions
+export const postgis = {
+  asGeoJSON: (column: string) => sql<string>`ST_AsGeoJSON(${sql.raw(column)})`,
+  fromGeoJSON: (geojson: string) => sql`ST_GeomFromGeoJSON(${geojson})`,
+  x: (column: string) => sql<number>`ST_X(${sql.raw(column)})`,
+  y: (column: string) => sql<number>`ST_Y(${sql.raw(column)})`,
+  centroid: (column: string) => sql`ST_Centroid(${sql.raw(column)})`,
+  area: (column: string) => sql<number>`ST_Area(${sql.raw(column)})`,
+  asText: (column: string) => sql<string>`ST_AsText(${sql.raw(column)})`,
+  setSRID: (column: string, srid: number) =>
+    sql`ST_SetSRID(${sql.raw(column)}, ${srid})`,
+  transform: (column: string, srid: number) =>
+    sql`ST_Transform(${sql.raw(column)}, ${srid})`,
+};
 
 /**
- * Experimental custom type for PostGIS geometry, only supports reads
+ * Custom type for PostGIS geometry that automatically converts to GeoJSON
  */
 export const geometry = <
   TType extends GeoJSON.Geometry['type'] = GeoJSON.Geometry['type'],
@@ -14,208 +30,46 @@ export const geometry = <
   dbName: string,
   fieldConfig?: T['config'] & { type: TType },
 ) => {
-  const type = fieldConfig?.type;
   return customType<{
     data: GeometryTypes[TType];
   }>({
     dataType() {
-      return type ? `geometry(${type},4326)` : 'geometry';
+      return fieldConfig?.type
+        ? `geometry(${fieldConfig.type},4326)`
+        : 'geometry';
     },
     toDriver(value) {
-      return sql`ST_GeomFromGeoJSON(${JSON.stringify(value)})`;
+      if (!value) return sql`NULL`;
+      return sql`ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(value)}), 4326)`;
     },
     fromDriver(value) {
-      const val = value as string;
+      if (!value) return null;
 
-      // Detect if hex string
-      if (!val.startsWith('{')) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return parseHexToGeometry(val) as GeometryTypes[TType];
-      } else {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          const data = JSON.parse(value as string);
-
-          if (type && data.type !== type) {
-            throw new Error(`Expected geometry type ${type}, got ${data.type}`);
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return data as GeometryTypes[TType];
-        } catch (e) {
-          throw new Error(`Failed to parse geometry: ${e.message}`);
+      try {
+        // If it's already a GeoJSON string
+        if (typeof value === 'string' && value.startsWith('{')) {
+          return JSON.parse(value) as GeometryTypes[TType];
         }
+
+        // If it's a WKB hex string
+        const buffer = Buffer.from(value as string, 'hex');
+        const geometry = wkx.Geometry.parse(buffer);
+        console.log(geometry.toGeoJSON());
+        return geometry.toGeoJSON() as GeometryTypes[TType];
+      } catch (error) {
+        console.error('Error parsing geometry:', error);
+        console.error('Raw value:', value);
+        // Return as raw SQL for explicit conversion
+        return sql`ST_AsGeoJSON(${sql.raw(value as string)})::json` as unknown as GeometryTypes[TType];
       }
     },
   })(dbName, fieldConfig);
 };
 
-export enum GeometryType {
-  Point = 1,
-  LineString = 2,
-  Polygon = 3,
-  MultiPoint = 4,
-  MultiLineString = 5,
-  MultiPolygon = 6,
-  GeometryCollection = 7,
-}
-
-export const parseHexToGeometry = (hex: string): GeoJSON.Geometry => {
-  const startMs = performance.now();
-  try {
-    const byteStr = hex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16));
-    if (!byteStr) {
-      throw new Error('Failed to convert hex to buffer');
-    }
-
-    const uint8Array = new Uint8Array(byteStr);
-    const buffer = uint8Array.buffer;
-
-    const dataView = new DataView(buffer);
-
-    let byteOffset = 0;
-
-    const byteOrder = dataView.getUint8(0); // 1 byte
-    byteOffset += 1; // Move the byte offset past the byte order field
-
-    const littleEndian = byteOrder === 1;
-
-    let geometryType = dataView.getUint32(1, littleEndian); // 4 bytes
-    byteOffset += 4; // Move the byte offset past the geometry type field
-
-    const hasSRID = (geometryType & 0x20000000) > 0; // Check if the SRID flag is set
-
-    if (hasSRID) {
-      // If SRID is included, read the SRID
-      // Set geometry type to the actual type, stripping the SRID flag
-      geometryType &= ~0x20000000;
-      byteOffset += 4; // Move the byte offset past the SRID field
-    }
-
-    const geometry = parseGeometry(
-      dataView,
-      littleEndian,
-      geometryType,
-      byteOffset,
-    );
-
-    return geometry;
-  } catch (e) {
-    throw e;
-  } finally {
-    const endMs = performance.now();
-    console.debug(
-      '[Postgis Geometry] parseHexToGeometry took',
-      endMs - startMs,
-      'ms',
-    );
-  }
-};
-
-function readPoint(
-  dataView: DataView,
-  littleEndian: boolean,
-  offset: number,
-): GeoJSON.Position {
-  const x = dataView.getFloat64(offset, littleEndian);
-  const y = dataView.getFloat64(offset + 8, littleEndian);
-  return [x, y];
-}
-
-function readLineString(
-  dataView: DataView,
-  littleEndian: boolean,
-  offset: number,
-): GeoJSON.Position[] {
-  const numPoints = dataView.getUint32(1, littleEndian);
-  const points: GeoJSON.Position[] = [];
-  for (let i = 0; i < numPoints; i++) {
-    const x = dataView.getFloat64(offset, littleEndian);
-    const y = dataView.getFloat64(offset + 8, littleEndian);
-    points.push([x, y]);
-    offset += 16;
-  }
-  return points;
-}
-
-function readPolygon(
-  dataView: DataView,
-  littleEndian: boolean,
-  offset: number,
-): GeoJSON.Position[][] {
-  const numRings = dataView.getUint32(1, littleEndian);
-  const rings: GeoJSON.Position[][] = [];
-  for (let i = 0; i < numRings; i++) {
-    const numPoints = dataView.getUint32(offset, littleEndian);
-    offset += 4;
-    const points: GeoJSON.Position[] = [];
-    for (let j = 0; j < numPoints; j++) {
-      const x = dataView.getFloat64(offset, littleEndian);
-      const y = dataView.getFloat64(offset + 8, littleEndian);
-      points.push([x, y]);
-      offset += 16;
-    }
-    rings.push(points);
-  }
-  return rings;
-}
-
-export const parseGeometry = (
-  dataView: DataView,
-  littleEndian: boolean,
-  type: GeometryType,
-  offset: number,
-): GeoJSON.Geometry => {
-  switch (type) {
-    case GeometryType.Point:
-      return {
-        type: 'Point',
-        coordinates: readPoint(
-          dataView,
-          littleEndian,
-          offset,
-        ) as GeoJSON.Point['coordinates'],
-      };
-    case GeometryType.LineString:
-      return {
-        type: 'LineString',
-        coordinates: readLineString(
-          dataView,
-          littleEndian,
-          offset,
-        ) as GeoJSON.LineString['coordinates'],
-      };
-    case GeometryType.Polygon:
-      return {
-        type: 'Polygon',
-        coordinates: readPolygon(
-          dataView,
-          littleEndian,
-          offset,
-        ) as GeoJSON.Polygon['coordinates'],
-      };
-    case GeometryType.MultiPoint:
-      return {
-        type: 'MultiPoint',
-        coordinates: readLineString(
-          dataView,
-          littleEndian,
-          offset,
-        ) as GeoJSON.MultiPoint['coordinates'],
-      };
-    case GeometryType.MultiLineString:
-      return {
-        type: 'MultiLineString',
-        coordinates: readPolygon(
-          dataView,
-          littleEndian,
-          offset,
-        ) as GeoJSON.MultiLineString['coordinates'],
-      };
-    default:
-      throw new Error('Unsupported geometry type');
-  }
-};
+// Helper types
+export type Point = [number, number];
+export type LineString = Point[];
+export type Polygon = LineString[];
 
 export type GeometryTypes = {
   Point: GeoJSON.Point;
@@ -226,3 +80,7 @@ export type GeometryTypes = {
   MultiPolygon: GeoJSON.MultiPolygon;
   GeometryCollection: GeoJSON.GeometryCollection;
 };
+
+// Example usage in schema:
+// geometry: geometry('geometry', { type: 'Point' })
+// geometry: geometry('geometry', { type: 'Polygon' })
