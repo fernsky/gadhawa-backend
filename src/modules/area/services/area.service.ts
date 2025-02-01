@@ -52,7 +52,9 @@ export class AreaService {
     const filterConditions = [];
 
     if (query.wardNumber) {
-      filterConditions.push(eq(schema.areas.wardNumber, query.wardNumber));
+      filterConditions.push(
+        eq(schema.areas.wardNumber, parseInt(query.wardNumber)),
+      );
     }
     if (query.status) {
       filterConditions.push(

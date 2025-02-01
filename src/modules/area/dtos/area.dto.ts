@@ -63,8 +63,8 @@ export class UpdateAreaDto {
 export class AreaQueryDto {
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsInt()
-  wardNumber?: number;
+  @IsString()
+  wardNumber?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
