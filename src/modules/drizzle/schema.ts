@@ -5,6 +5,7 @@ import {
   integer,
   index,
   pgEnum,
+  text,
 } from 'drizzle-orm/pg-core';
 import { geometry } from './types/geographical';
 
@@ -37,11 +38,21 @@ export const wards = pgTable(
     wardNumber: integer('ward_number').primaryKey(),
     wardAreaCode: integer('ward_area_code').notNull(),
     geometry: geometry('geometry', { type: 'Polygon' }).notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .notNull()
+      .$defaultFn(() => new Date()),
+    deletedAt: timestamp('deleted_at'),
+    syncStatus: text('sync_status').default('pending'),
   },
   (t) => ({
     wardNumberIdx: index('ward_number_idx').on(t.wardNumber),
   }),
 );
+
+export type Ward = typeof wards.$inferSelect;
+export type NewWard = typeof wards.$inferInsert;
 
 /*
 The area status works in the following way:

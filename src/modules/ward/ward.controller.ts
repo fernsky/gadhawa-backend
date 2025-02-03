@@ -9,6 +9,8 @@ import {
   UseGuards,
   ParseIntPipe,
   HttpStatus,
+  Query,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,9 +18,16 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { WardService } from './ward.service';
-import { CreateWardDto, UpdateWardDto, WardResponseDto } from './dto/ward.dto';
+import {
+  CreateWardDto,
+  UpdateWardDto,
+  WardResponseDto,
+  SyncResponseDto,
+  SyncQueryDto,
+} from './dto/ward.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -56,6 +65,38 @@ export class WardController {
   })
   findAll(): Promise<WardResponseDto[]> {
     return this.wardService.findAll();
+  }
+
+  @Get('sync')
+  @ApiOperation({ summary: 'Get ward changes for sync' })
+  @ApiQuery({
+    name: 'lastSyncedAt',
+    required: false,
+    type: String,
+    description:
+      'ISO 8601 timestamp of last sync (e.g., 2024-02-01T10:00:00.000Z)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: SyncResponseDto,
+    description: 'Ward changes and sync timestamp',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid date format. Expected ISO 8601 timestamp.',
+  })
+  getChanges(
+    @Query(
+      new ValidationPipe({
+        transform: true,
+        validateCustomDecorators: true,
+        transformOptions: { enableImplicitConversion: true },
+        forbidNonWhitelisted: true,
+      }),
+    )
+    syncQuery: SyncQueryDto,
+  ): Promise<SyncResponseDto> {
+    return this.wardService.getChanges(syncQuery.lastSyncedAt);
   }
 
   @Get(':wardNumber')

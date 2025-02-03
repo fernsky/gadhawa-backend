@@ -12,9 +12,11 @@ export class ZodValidationPipe implements PipeTransform {
       console.log('ZodValidationPipe - Validated result:', result);
       return result;
     } catch (error) {
+      //@ts-expect-error Zod related issue
       console.error('ZodValidationPipe - Validation error:', error.errors);
       throw new BadRequestException({
         message: 'Validation failed',
+        //@ts-expect-error Zod related issue
         errors: error.errors,
         receivedValue: value,
       });

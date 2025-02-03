@@ -1,11 +1,19 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CreateWardDto, UpdateWardDto, WardResponseDto } from './dto/ward.dto';
+import {
+  CreateWardDto,
+  UpdateWardDto,
+  WardResponseDto,
+  WardSyncResponseDto,
+  SyncResponseDto,
+} from './dto/ward.dto';
 import { eq, sql } from 'drizzle-orm';
 import { wards } from '../drizzle/schema';
 import { DRIZZLE_ORM } from '@app/core/constants/db.constants';
 import { JwtService } from '@nestjs/jwt';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from '../drizzle/schema';
+import { getValidSyncDate } from './utils/sync.utils';
+import { SYNC_MESSAGES } from './constants/sync.constants';
 
 @Injectable()
 export class WardService {
@@ -27,7 +35,12 @@ export class WardService {
         .returning();
       return this.transformWardResponse(ward);
     } catch (error) {
-      if (error.code === '23505') {
+      if (
+        typeof error === 'object' &&
+        error &&
+        'code' in error &&
+        error.code === '23505'
+      ) {
         throw new Error('Ward number already exists');
       }
       throw error;
@@ -68,7 +81,12 @@ export class WardService {
   ): Promise<WardResponseDto> {
     const [updated] = await this.db
       .update(wards)
-      .set(updateWardDto)
+      .set({
+        ...updateWardDto,
+        //@ts-expect-error Drizzle related issue
+        updatedAt: new Date(),
+        syncStatus: 'pending',
+      })
       .where(eq(wards.wardNumber, wardNumber))
       .returning();
 
@@ -81,7 +99,13 @@ export class WardService {
 
   async remove(wardNumber: number): Promise<void> {
     const result = await this.db
-      .delete(wards)
+      .update(wards)
+      .set({
+        //@ts-expect-error Drizzle related issue
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+        syncStatus: 'pending',
+      })
       .where(eq(wards.wardNumber, wardNumber))
       .returning();
 
@@ -90,7 +114,58 @@ export class WardService {
     }
   }
 
-  private transformWardResponse(ward: any): WardResponseDto {
+  async getChanges(lastSyncedAt?: string): Promise<SyncResponseDto> {
+    const { timestamp, message, status } = getValidSyncDate(lastSyncedAt);
+    const timestampStr = timestamp.toISOString();
+
+    const result = await this.db.execute(
+      sql`SELECT 
+          ward_number as "wardNumber", 
+          ward_area_code as "wardAreaCode",
+          ST_AsGeoJSON(geometry) as geometry,
+          created_at as "createdAt",
+          updated_at as "updatedAt",
+          deleted_at as "deletedAt",
+          sync_status as "syncStatus"
+          FROM ${wards} 
+          WHERE updated_at > ${timestampStr}::timestamp
+          OR (deleted_at IS NOT NULL AND deleted_at > ${timestampStr}::timestamp)
+          ORDER BY updated_at DESC`,
+    );
+
+    const currentTimestamp = new Date().toISOString();
+    // Bind 'this' context using bind() or use arrow function
+    const changes =
+      result?.map((ward) => this.transformWardSyncResponse(ward)) ?? [];
+
+    return {
+      changes,
+      timestamp: currentTimestamp,
+      syncInfo: {
+        lastAttemptedSync: lastSyncedAt || null,
+        actualSyncFrom: timestampStr,
+        recordsFound: changes.length,
+        status: status === 'success' ? 'success' : 'partial',
+        message: changes.length
+          ? SYNC_MESSAGES.SUCCESS(changes.length, timestampStr)
+          : SYNC_MESSAGES.NO_CHANGES,
+        fallbackReason: status === 'fallback' ? message : null,
+      },
+    };
+  }
+
+  // Convert methods to arrow functions to maintain 'this' context
+  private transformWardSyncResponse = (ward: any): WardSyncResponseDto => {
+    if (!ward) return null;
+    return {
+      ...this.transformWardResponse(ward),
+      createdAt: ward.createdAt,
+      updatedAt: ward.updatedAt,
+      deletedAt: ward.deletedAt,
+    };
+  };
+
+  private transformWardResponse = (ward: any): WardResponseDto => {
     if (!ward) return null;
     return {
       wardNumber: ward.wardNumber,
@@ -100,5 +175,5 @@ export class WardService {
           ? JSON.parse(ward.geometry)
           : ward.geometry,
     };
-  }
+  };
 }
